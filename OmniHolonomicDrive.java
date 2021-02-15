@@ -3,7 +3,6 @@ package org.firstinspires.ftc.teamcode;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.util.ElapsedTime;
 
 /**
  * This code was based on https://github.com/nahn20/FGC_Guides/blob/master/driveJava.java
@@ -11,7 +10,7 @@ import com.qualcomm.robotcore.util.ElapsedTime;
  * It's been modifed and documented to fit the needs to help teach our students and
  * used in our robot
  */
-@TeleOp(name="omniHolonomicDrive", group="2021UltimateGoal")
+@TeleOp(name="Pearls", group="2021UltimateGoal")
 public class OmniHolonomicDrive extends LinearOpMode {
 
     float rotateAngle = 0;
@@ -40,6 +39,7 @@ public class OmniHolonomicDrive extends LinearOpMode {
         frontRightWheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         backRightWheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
+        // The Control and Expansion hubs have an accelerometer, gyroscope, and magnetometer built in.
         imu = hardwareMap.get(BNO055IMU.class, "imu");
 
         BNO055IMU.Parameters parameters = new BNO055IMU.Parameters();
@@ -61,19 +61,24 @@ public class OmniHolonomicDrive extends LinearOpMode {
     }
     
     public void drive() {
-        double protate = gamepad1.right_stickX/4;
+        // Paper's comment said that this could be divided any, but 4 felt right
+        double protate = gamepad1.right_stickX / 4;
 
         //Accounts for protate when limiting magnitude to be less than 1
-        double stickX = gamepad1.left_stickX * Math.sqrt(Math.pow(1-Math.abs(protate), 2)/2); 
-        double stickY = gamepad1.left_stickY * Math.sqrt(Math.pow(1-Math.abs(protate), 2)/2);
+        double processedProtate = Math.sqrt( Math.pow( 1 - Math.abs( protate ), 2 ) / 2 );
+        double stickX = gamepad1.left_stickX * processedProtate; 
+        double stickY = gamepad1.left_stickY * processedProtate;
         
-        double theta = 0;
-        double pX    = 0;
-        double pY    = 0;
+        double cValue   = 0;
+        double theta    = 0;
+        double pX       = 0;
+        double pY       = 0;
 
         // 1/4 of the circle or 90 deg sections.
-        // NOTE: I think this is in relation to the 4 quadrants
         double halfPi = Math.PI / 2;
+
+        // 1/8 of the circle or 45 deg sections:
+        double quarterPi = Math.PI / 4;
 
         // Converts gyroAngle into radians
         double gyroAngle = getHeading() * Math.PI / 180; 
@@ -142,12 +147,24 @@ public class OmniHolonomicDrive extends LinearOpMode {
          *     pX \---/ pY
          */
         theta = Math.atan2(stickY, stickX) - gyroAngle - halfPi;
-        pX = Math.sqrt(Math.pow(stickX, 2) + Math.pow(stickY, 2)) * (Math.sin(theta + Math.PI / 4));
-        pY = Math.sqrt(Math.pow(stickX, 2) + Math.pow(stickY, 2)) * (Math.sin(theta - Math.PI / 4));
+        
+        /**
+         * So this formula is calculating the value of c in the Pythagorean theorem, but using
+         * stickX for 'a' and stickY for 'b'.
+         * 
+         * C being the length of the radial line from the center.
+         * 
+         * Then to take the radial line and rotate based on the calculated amount based on calculated
+         * angle and the angle of the robot.
+         */
+        cValue = Math.sqrt(Math.pow(stickX, 2) + Math.pow(stickY, 2));
+
+        pX = cValue * (Math.sin(theta + quarterPi));
+        pY = cValue * (Math.sin(theta - quarterPi));
 
         telemetry.addData("stickX", stickX);
         telemetry.addData("stickY", stickY);
-        telemetry.addData("Magnitude",  Math.sqrt(Math.pow(stickX, 2) + Math.pow(stickY, 2)));
+        telemetry.addData("Magnitude",  cValue);
         telemetry.addData("Front Left", pY - protate);
         telemetry.addData("Back Left", pX - protate);
         telemetry.addData("Back Right", pY + protate);
@@ -158,6 +175,13 @@ public class OmniHolonomicDrive extends LinearOpMode {
         backRightWheel.setPower(pY + protate);
         frontRightWheel.setPower(pX + protate);
     }
+
+    /**
+     * Used to set the gyro starting angle.   The initial starting angle is based on when the robot
+     * is turned on.   If the robot is moved after it is on, it needs to have a starting position.
+     * 
+     * FUTURE ENHANCEMENT: Maybe this can be set automatically 
+     */
     public void resetAngle() {
         if ( gamepad1.a ) {
             reset_angle = getHeading() + reset_angle;
@@ -165,9 +189,15 @@ public class OmniHolonomicDrive extends LinearOpMode {
     }
 
     public double getHeading(){
+        // AxesReference.INTRINSIC = intrinsic rotations, where the axes move with the object that is rotating.
+        // AxesOrder.ZYX = the order of the axes are returned.
+        // AngleUnit.DEGREES = Returns the angles in DEGREES
         Orientation angles = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
+
+        // Retrieves the first axis's value.
         double heading = angles.firstAngle;
 
+        // Not sure why we'd invert angles
         if ( heading < -180 ) {
             heading = heading + 360;
         } else if ( heading > 180 ) {

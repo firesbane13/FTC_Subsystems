@@ -62,12 +62,12 @@ public class OmniHolonomicDrive extends LinearOpMode {
     
     public void drive() {
         // Paper's comment said that this could be divided any, but 4 felt right
-        double protate = gamepad1.right_stickX / 4;
+        double protate = gamepad1.right_stick_x / 4;
 
         //Accounts for protate when limiting magnitude to be less than 1
         double processedProtate = Math.sqrt( Math.pow( 1 - Math.abs( protate ), 2 ) / 2 );
-        double stickX = gamepad1.left_stickX * processedProtate; 
-        double stickY = gamepad1.left_stickY * processedProtate;
+        double stickX = gamepad1.left_stick_x * processedProtate; 
+        double stickY = gamepad1.left_stick_y * processedProtate;
         
         double cValue   = 0;
         double theta    = 0;
@@ -184,7 +184,7 @@ public class OmniHolonomicDrive extends LinearOpMode {
      */
     public void resetAngle() {
         if ( gamepad1.a ) {
-            reset_angle = getHeading() + reset_angle;
+            resetAngle = getHeading() + resetAngle;
         }
     }
 
@@ -204,7 +204,7 @@ public class OmniHolonomicDrive extends LinearOpMode {
             heading = heading - 360;
         }
 
-        heading = heading - reset_angle;
+        heading = heading - resetAngle;
         
         return heading;
     }

@@ -1,14 +1,11 @@
 package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
-import org.firstinspires.ftc.robotcore.external.navigation.Position;
 import com.qualcomm.robotcore.hardware.Servo;
 import org.firstinspires.ftc.robotcore.external.navigation.Orientation;
 import com.qualcomm.hardware.bosch.BNO055IMU;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.DcMotorSimple;
-import org.firstinspires.ftc.robotcore.external.navigation.Orientation;
 import org.firstinspires.ftc.robotcore.external.navigation.AxesReference;
 import org.firstinspires.ftc.robotcore.external.navigation.AxesOrder;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
@@ -16,17 +13,56 @@ import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 @TeleOp(name="PearlsMecanum", group="2021UltimateGoal")
 public class PearlsMecanum extends LinearOpMode {
 
-/**
- * this code is based on https://github.com/nahn20/FGC_Guides/blob/master/driveJava.java
- * as described in paper: https://seas.yale.edu/sites/default/files/imce/other/HolonomicOmniWheelDrive.pdf
- * It has been modifed and documented to help teach our students
- * and remodified my Julia to prove comprehension and fit current coding level
- */
- 
+    /**
+     * this code is based on https://github.com/nahn20/FGC_Guides/blob/master/driveJava.java
+     * as described in paper: https://seas.yale.edu/sites/default/files/imce/other/HolonomicOmniWheelDrive.pdf
+     * It has been modifed and documented to help teach our students
+     * and remodified my Julia to prove comprehension and fit current coding level
+     * 
+     * Thing to note that despite the paper showing omniwheels in various orientations, it 
+     * only seems to work correctly for Mecanum wheels and not Omniwheels in a 45 degree angle.
+     * 
+     * Mecanum wheels form an X with their rolls, but the Omniwheels in a 45 degree orientation
+     * move differently for left, right, and diagonals.   In order to adjust this for Omniwheels
+     * in a 45 degree orientation, the pX and pY values needed to be switched around in the final 
+     * wheel motor setPower() function calls.
+     */
+
+    /**
+     * Setting constants to variables like this allows one to more easily change 
+     * configurations without massive changes.
+     * 
+     * Example:
+     *      Original code setDirection for 2 wheels as so:
+     *      frontLeftWheel.setDirection(DcMotor.Direction.FORWARD);
+     *      backLeftWheel.setDirection(DcMotor.Direction.FORWARD);
+     * 
+     *      If we wanted to change directions, we'd have to change both of those
+     *      from FORWARD to REVERSE.
+     * 
+     *      By setting a leftDirection and rightDirection we can consistently set
+     *      those directions here vs changing the motors further down.
+     * 
+     *      New code:
+     *      frontLeftWheel.setDirection(leftDirection);
+     *      backLeftWheel.setDirection(leftDirection);
+     */
+    private DcMotor.Direction forward = DcMotor.Direction.FORWARD;
+    private DcMotor.Direction reverse = DcMotor.Direction.REVERSE;
+    private DcMotor.Direction leftDirection = forward;
+    private DcMotor.Direction rightDirection = reverse;
+
+    /**
+     * Other ZeroPowerBehaviors can be added here as needed as well as changing the default
+     * behavior.
+     */
+    private DcMotor.ZeroPowerBehavior brakeMode = DcMotor.ZeroPowerBehavior.BRAKE;
+    private DcMotor.ZeroPowerBehavior zeroPowerBehavior = brakeMode;
+
     float rotateAngle = 0;
     double resetAngle = 0;
-    double shooterSpeed;
-    double maxShooterSpeed;
+    double shooterSpeed = 0;
+    double maxShooterSpeed = 0.80;
     
     //drive train
     private DcMotor frontLeftWheel = null;
@@ -34,27 +70,37 @@ public class PearlsMecanum extends LinearOpMode {
     private DcMotor frontRightWheel = null;
     private DcMotor backRightWheel = null;
     
-    //shooter and collector
-    private DcMotor collector;
-    private DcMotor shooter;
+    /**
+     * Wheel orientation
+     * 0 - Mecanum Wheels with rollers in X formation
+     * 1 - Omniwheels at 45 degs / Mecanum in a box formation
+     */
+    private int wheelOrientation = 1;
     
     //arm and claw
     private DcMotor arm;
-    private Servo claw;
+
+    // Used for encoder functionality of the arm.
+    static int cpr = 960;
+    double armRadius = 12.5;
+    double movementPerDegree = (armRadius * cpr) / 360;
     
-    private DcMotor.RunMode encoderSetting;
+    // Encoder settings.
     private DcMotor.RunMode stopAndReset = DcMotor.RunMode.STOP_AND_RESET_ENCODER;
     private DcMotor.RunMode runToPosition = DcMotor.RunMode.RUN_TO_POSITION;
     private DcMotor.RunMode runUsingEncoder = DcMotor.RunMode.RUN_USING_ENCODER;
 
-    static final double stopPower = 0.0;
-    static final int cpr = 960;
-    double armRadius = 12.5;
-    double movementPerDegree = (armRadius * cpr) / 360;
-    
+    static double stopPower = 0.0;
+
     BNO055IMU imu;
     @Override
     public void runOpMode() {
+
+    //shooter and collector
+        DcMotor collector;
+        DcMotor shooter;
+        Servo claw;
+
         frontLeftWheel = hardwareMap.dcMotor.get("frontLeftWheel");
         backLeftWheel = hardwareMap.dcMotor.get("backLeftWheel");
         frontRightWheel = hardwareMap.dcMotor.get("frontRightWheel");
@@ -62,19 +108,25 @@ public class PearlsMecanum extends LinearOpMode {
         
         collector = hardwareMap.dcMotor.get("collector");
         shooter = hardwareMap.dcMotor.get("shooter");
+
         arm = hardwareMap.dcMotor.get("arm");
         claw = hardwareMap.servo.get("claw");
         
-        frontLeftWheel.setDirection(DcMotor.Direction.FORWARD);
-        backLeftWheel.setDirection(DcMotor.Direction.FORWARD);
-        frontRightWheel.setDirection(DcMotor.Direction.REVERSE);
-        backRightWheel.setDirection(DcMotor.Direction.REVERSE);
+        // Set initial settings for drive train.
+        frontLeftWheel.setDirection(leftDirection);
+        backLeftWheel.setDirection(leftDirection);
+        frontRightWheel.setDirection(rightDirection);
+        backRightWheel.setDirection(rightDirection);
         
-        
-        frontLeftWheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        backLeftWheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        frontRightWheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        backRightWheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        frontLeftWheel.setZeroPowerBehavior(zeroPowerBehavior);
+        backLeftWheel.setZeroPowerBehavior(zeroPowerBehavior);
+        frontRightWheel.setZeroPowerBehavior(zeroPowerBehavior);
+        backRightWheel.setZeroPowerBehavior(zeroPowerBehavior);
+
+        // Set inital settings for shooter
+        shooter.setDirection(reverse);
+        shooter.setMode(runUsingEncoder);
+        shooter.setMaxSpeed(maxShooterSpeed);
         
         //the expansion hub has an accelerometer, gyroscope, and magnetometer built in. we will be focusing on the gyroscope.
         imu = hardwareMap.get(BNO055IMU.class, "imu");
@@ -88,8 +140,8 @@ public class PearlsMecanum extends LinearOpMode {
         
         imu.initialize(parameters);
         
-        while(!opModeIsActive()){}
-        
+        waitForStart();
+                
         while(opModeIsActive()){
             drive();
             resetAngle();
@@ -121,23 +173,19 @@ public class PearlsMecanum extends LinearOpMode {
             collector.setPower(gamepad1.left_trigger);
             
             //shooter
-            maxShooterSpeed = -0.70;
-            shooterSpeed = -gamepad1.right_trigger;
+            shooterSpeed = gamepad1.right_trigger;
             
-            if (shooterSpeed <= maxShooterSpeed) {
+            if (shooterSpeed >= maxShooterSpeed) {
                 shooterSpeed = maxShooterSpeed;
             }
             
             shooter.setPower(shooterSpeed);
 
-            if (shooterSpeed <= maxShooterSpeed) {
-               sleep(250);
-            collector.setPower(1.0);
-            
+            if (shooterSpeed >= maxShooterSpeed) {
+                sleep(250);
+                collector.setPower(1.0);
             }
-            
         }
-        
     }
     
     public void drive(){
@@ -171,24 +219,24 @@ public class PearlsMecanum extends LinearOpMode {
             gyroAngle = gyroAngle - (3 * halfPi);
         }
         
-        gyroAngle = -1 * gyroAngle;
+        gyroAngle *= -1 * gyroAngle;
         
         //Disables gyro, sets to -Math.PI/2 so front is defined correctly
-        //if( gamepad1.right_bumper ) {
+        if( gamepad1.right_bumper ) {
             gyroAngle = -halfPi;
-        //}
+        }
         
         //linear directions in case you want to do straight lines
         if (gamepad1.dpad_right) {
-            stickX = -0.5;
+            stickX = 0.5;
         } else if ( gamepad1.dpad_left ){
             stickX = -0.5;
         }
         
         if (gamepad1.dpad_up) {
-            stickY = -0.5;
+            stickY = 0.5;
         } else if ( gamepad1.dpad_down ) {
-            stickY =0.5;
+            stickY = -0.5;
         }
         
         //MOVEMENT
@@ -215,9 +263,10 @@ public class PearlsMecanum extends LinearOpMode {
          * 
          * x^2 + y^2 * sine(calculated center andgle +/- the angle of the wheels) = power
          * 
-         *      pY /---\ pX
-         *         \   \
-         *      pX \---/ pY
+         *    Omniwheels 45 deg         Mecanum in X
+         *      pX /---\ pY             pY \---/ pX
+         *         |   |                   |   |
+         *      pY \---/ pX             pX /---\ pY
          */
         theta = Math.atan2(stickY, stickX) - gyroAngle - halfPi;
         
@@ -238,18 +287,36 @@ public class PearlsMecanum extends LinearOpMode {
         telemetry.addData("stickX", stickX);
         telemetry.addData("stickY", stickY);
         telemetry.addData("Magnitude", cValue);
-        telemetry.addData("Front Left", pY + protate);
-        telemetry.addData("Back Left", pX + protate);
-        telemetry.addData("Back Right", pY - protate);
-        telemetry.addData("Front Right", pX - protate);
         
-        frontLeftWheel.setPower(pY - protate);
-        backLeftWheel.setPower(pX - protate);
-        frontRightWheel.setPower(pX + protate);
-        backRightWheel.setPower(pY + protate);
+        if ( wheelOrientation == 0 ) {
+            // Mecanum wheels in an X formation
+            telemetry.addData("Front Left", pY - protate);
+            telemetry.addData("Back Left", pX - protate);
+            telemetry.addData("Back Right", pY + protate);
+            telemetry.addData("Front Right", pX + protate);
+
+            // Mecanum
+            frontLeftWheel.setPower(pY - protate);
+            backLeftWheel.setPower(pX - protate);
+            frontRightWheel.setPower(pX + protate);
+            backRightWheel.setPower(pY + protate);
+        } else if ( wheelOrientation == 1 ) {
+            // Omniwheels in a 45 deg formation
+            telemetry.addData("Front Left", pX - protate);
+            telemetry.addData("Back Left", pY - protate);
+            telemetry.addData("Back Right", pX + protate);
+            telemetry.addData("Front Right", pY + protate);
+
+            // Omniwheels 45 deg
+            frontLeftWheel.setPower(pX - protate);
+            backLeftWheel.setPower(pY - protate);
+            frontRightWheel.setPower(pY + protate);
+            backRightWheel.setPower(pX + protate);
+        }
     }
+
     /** 
-     *  Used to set the gyroscope starting angle.
+     * Used to set the gyroscope starting angle.
      * the initial starting angle is based on when the robot is turned on
      * if the robot is moved after it is on, it needs to have a starting position 
      * 
@@ -279,17 +346,15 @@ public class PearlsMecanum extends LinearOpMode {
         heading = heading - resetAngle;
         
         return heading;
-        
     }
-    
     
     /** 
      * rotateLeftOrRight()
      * 
      * Rotate angle left or right
      * 
-     * @params int rotateAngle Postive value rotates right, negative rotates left
-     * @params double speed Range 0.0 to 1.0
+     * @param int rotateAngle Postive value rotates right, negative rotates left
+     * @param double speed Range 0.0 to 1.0
      */
     private void rotateLeftOrRight(int rotateAngle, double speed) {
         // Get current motor positions
@@ -301,21 +366,17 @@ public class PearlsMecanum extends LinearOpMode {
 
         // Set location to move to
         arm.setTargetPosition(armPosition);
-
-        encoderSetting = runToPosition;
-        arm.setMode(encoderSetting);
+        arm.setMode(runToPosition);
         
         // Start moving robot by setting motor speed
         arm.setPower(speed);
 
-        while (arm.isBusy()
-        ) {
+        // Loop until arm is done moving
+        while (arm.isBusy()) {
             idle();
         }
 
         arm.setPower(stopPower);
-        
-        encoderSetting = stopAndReset;
-        arm.setMode(encoderSetting);
+        arm.setMode(stopAndReset);
     }
 }

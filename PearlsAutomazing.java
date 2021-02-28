@@ -4,11 +4,6 @@ import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.hardware.bosch.BNO055IMU;
-import org.firstinspires.ftc.robotcore.external.navigation.Orientation;
-import org.firstinspires.ftc.robotcore.external.navigation.AxesReference;
-import org.firstinspires.ftc.robotcore.external.navigation.AxesOrder;
-import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
-import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 
 /**
  * This code was based on https://github.com/nahn20/FGC_Guides/blob/master/driveJava.java
@@ -25,11 +20,8 @@ public class PearlsAutomazing extends LinearOpMode {
     private DcMotor backRightWheel  = null;
     private DcMotor frontRightWheel = null;
 
-    // Start Change
-    private DcMotor.Direction forward;
-    private DcMotor.Direction reverse;
-    private DcMotor.Direction leftDirection;
-    private DcMotor.Direction rightDirection;
+    private DcMotor.Direction forward = DcMotor.Direction.FORWARD;
+    private DcMotor.Direction reverse = DcMotor.Direction.REVERSE;
 
     private DcMotor.RunMode encoderSetting;
     private DcMotor.RunMode stopAndReset = DcMotor.RunMode.STOP_AND_RESET_ENCODER;
@@ -37,60 +29,50 @@ public class PearlsAutomazing extends LinearOpMode {
     private DcMotor.RunMode runUsingEncoder = DcMotor.RunMode.RUN_USING_ENCODER;
 
     // Tetrix Torquenado 44260, counts per revolution = 1440
-    static final int cpr = 480;
+    static final int CPR = 480;
 
-    static final int defaultInches = 1;
-    static final int defaultDegree = 1;
-    static final int wheelDiameter = 4;
-    static final int robotRadius = 9;
-    double movementInInches = cpr / (wheelDiameter * Math.PI);
-    // double movementInInches = cpr;
-    double movementPerDegree = ((robotRadius / (wheelDiameter / 2)) * cpr) / 360;
+    static final int DEFAULTINCHES = 1;
+    static final int DEFAULTDEGREE = 1;
+    static final int WHEELDIAMETER = 4;
+    static final int ROBOTRADIUS = 9;
+
+    double movementInInches = CPR / (WHEELDIAMETER * Math.PI);
+    double movementPerDegree = ((ROBOTRADIUS / (WHEELDIAMETER / 2)) * CPR) / 360;
     double distance = 0.0;
 
-    static final double stopPower = 0.0;
-    // End Change
-    private DcMotor collector;
-    private DcMotor shooter;
-    double shooterSpeed;
-    double maxShooterSpeed;
+    static final double STOPPOWER = 0.0;
+
+    double shooterSpeed = 0;
+    double maxShooterSpeed = 0.70;
 
     BNO055IMU imu;
     @Override
     public void runOpMode() {
+        DcMotor collector;
+        DcMotor shooter;
+
+        leftDirection = forward;
+        rightDirection = reverse;
+
         telemetry.setAutoClear(true);
         
         frontLeftWheel  = hardwareMap.dcMotor.get("frontLeftWheel");
         backLeftWheel   = hardwareMap.dcMotor.get("backLeftWheel");
         backRightWheel  = hardwareMap.dcMotor.get("backRightWheel");
         frontRightWheel = hardwareMap.dcMotor.get("frontRightWheel");
+
         collector = hardwareMap.dcMotor.get("collector");
         shooter = hardwareMap.dcMotor.get("shooter");
-
-        // Start Changes
-        // Doing it this way will allow changing wheel direction faster
-        forward = DcMotor.Direction.FORWARD;
-        reverse = DcMotor.Direction.REVERSE;
-        leftDirection = forward;
-        rightDirection = reverse;
 
         frontLeftWheel.setDirection(leftDirection);
         backLeftWheel.setDirection(leftDirection);
         frontRightWheel.setDirection(rightDirection);
         backRightWheel.setDirection(rightDirection);
 
-        // End Changes
-
         frontLeftWheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         backLeftWheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         frontRightWheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         backRightWheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-
-        // Start Changes
-        // Encoder functionality
-        stopAndReset = DcMotor.RunMode.STOP_AND_RESET_ENCODER;
-        runToPosition = DcMotor.RunMode.RUN_TO_POSITION;
-        runUsingEncoder = DcMotor.RunMode.RUN_USING_ENCODER;
 
         encoderSetting = stopAndReset;
         frontLeftWheel.setMode(encoderSetting);
@@ -98,71 +80,32 @@ public class PearlsAutomazing extends LinearOpMode {
         frontRightWheel.setMode(encoderSetting);
         backRightWheel.setMode(encoderSetting);
 
-        /*
-        encoderSetting = runToPosition;
-        frontLeftWheel.setMode(encoderSetting);
-        backLeftWheel.setMode(encoderSetting);
-        frontRightWheel.setMode(encoderSetting);
-        backRightWheel.setMode(encoderSetting);
-        */
+        /**
+         * RUN_USING_ENCODER is suppose to allow for more consistent power
+         * to the motor.
+         */
+        shooter.setDirection(reverse);
+        shooter.setMode(runUsingEncoder);
+        shooter.setMaxSpeed(maxShooterSpeed);
 
         // Wait for the start of the game
         waitForStart();
-        /*
-        rotateLeftOrRight(-25, 0.25);
-
-        //shooter
-        maxShooterSpeed = -1.0;
-        shooterSpeed = maxShooterSpeed;
-            
-        //if (shooterSpeed <= maxShooterSpeed) {
-            shooterSpeed = maxShooterSpeed;
-        //}
-            
-        shooter.setPower(shooterSpeed);
-        
-        sleep(1000);
-            
-        //if (shooterSpeed <= maxShooterSpeed) {
-            collector.setPower(1.0);
-        //}
-        
-        sleep(3000);
-        
-        collector.setPower(0.0);
-        shooter.setPower(0.0);
-        
-        rotateLeftOrRight(15, 0.25);
-        */
        
         moveForwardOrBack((-7 * 12), 0.15);
-        
-        // strafeLeftOrRight(12, 0.5);
         
         moveForwardOrBack(42, 0.25);
         
         strafeLeftOrRight(-16, 0.25);
         
         rotateLeftOrRight(-11, 0.25);
-      
-        // rotateLeftOrRight(-270, 0.5);
-        //collector
 
         //shooter
-        maxShooterSpeed = -0.70;
         shooterSpeed = maxShooterSpeed;
-            
-        //if (shooterSpeed <= maxShooterSpeed) {
-            shooterSpeed = maxShooterSpeed;
-        //}
-            
         shooter.setPower(shooterSpeed);
         
         sleep(1000);
             
-        //if (shooterSpeed <= maxShooterSpeed) {
-            collector.setPower(1.0);
-        //}
+        collector.setPower(1.0);
         
         sleep(3000);
         
@@ -170,8 +113,6 @@ public class PearlsAutomazing extends LinearOpMode {
         shooter.setPower(0.0);
        
         moveForwardOrBack(-10, 0.25);
-
-        // End Changes
     }
 
     /** 
@@ -219,18 +160,14 @@ public class PearlsAutomazing extends LinearOpMode {
             && frontRightWheel.isBusy()
             && backRightWheel.isBusy()
         ) {
-            telemetry.addData("Target", "%7d :%7d", frontLeftPosition, frontRightPosition, backLeftPosition, backRightPosition);
-            telemetry.addData("Actual", "%7d :%7d", frontLeftWheel.getCurrentPosition(),
-                    frontRightWheel.getCurrentPosition(), backLeftWheel.getCurrentPosition(),
-                    backRightWheel.getCurrentPosition());
-            telemetry.update();
+            sendTelemetry();
             idle();
         }
 
-        frontLeftWheel.setPower(stopPower);
-        backLeftWheel.setPower(stopPower);
-        frontRightWheel.setPower(stopPower);
-        backRightWheel.setPower(stopPower);
+        frontLeftWheel.setPower(STOPPOWER);
+        backLeftWheel.setPower(STOPPOWER);
+        frontRightWheel.setPower(STOPPOWER);
+        backRightWheel.setPower(STOPPOWER);
         
         encoderSetting = stopAndReset;
         frontLeftWheel.setMode(encoderSetting);
@@ -285,18 +222,14 @@ public class PearlsAutomazing extends LinearOpMode {
             && frontRightWheel.isBusy()
             && backRightWheel.isBusy()
         ) {
-            telemetry.addData("Target", "%7d :%7d", frontLeftPosition, frontRightPosition, backLeftPosition, backRightPosition);
-            telemetry.addData("Actual", "%7d :%7d", frontLeftWheel.getCurrentPosition(),
-                    frontRightWheel.getCurrentPosition(), backLeftWheel.getCurrentPosition(),
-                    backRightWheel.getCurrentPosition());
-            telemetry.update();
+            sendTelemetry();
             idle();
         }
 
-        frontLeftWheel.setPower(stopPower);
-        backLeftWheel.setPower(stopPower);
-        frontRightWheel.setPower(stopPower);
-        backRightWheel.setPower(stopPower);
+        frontLeftWheel.setPower(STOPPOWER);
+        backLeftWheel.setPower(STOPPOWER);
+        frontRightWheel.setPower(STOPPOWER);
+        backRightWheel.setPower(STOPPOWER);
         
         encoderSetting = stopAndReset;
         frontLeftWheel.setMode(encoderSetting);
@@ -351,18 +284,14 @@ public class PearlsAutomazing extends LinearOpMode {
             && frontRightWheel.isBusy()
             && backRightWheel.isBusy()
         ) {
-            telemetry.addData("Target", "%7d :%7d", frontLeftPosition, frontRightPosition, backLeftPosition, backRightPosition);
-            telemetry.addData("Actual", "%7d :%7d", frontLeftWheel.getCurrentPosition(),
-                    frontRightWheel.getCurrentPosition(), backLeftWheel.getCurrentPosition(),
-                    backRightWheel.getCurrentPosition());
-            telemetry.update();
+            sendTelemetry();
             idle();
         }
 
-        frontLeftWheel.setPower(stopPower);
-        backLeftWheel.setPower(stopPower);
-        frontRightWheel.setPower(stopPower);
-        backRightWheel.setPower(stopPower);
+        frontLeftWheel.setPower(STOPPOWER);
+        backLeftWheel.setPower(STOPPOWER);
+        frontRightWheel.setPower(STOPPOWER);
+        backRightWheel.setPower(STOPPOWER);
         
         encoderSetting = stopAndReset;
         frontLeftWheel.setMode(encoderSetting);
@@ -370,5 +299,25 @@ public class PearlsAutomazing extends LinearOpMode {
         frontRightWheel.setMode(encoderSetting);
         backRightWheel.setMode(encoderSetting);
 
+    }
+
+    private void sendTelemetry() {
+        telemetry.addData(
+            "Target", 
+            "%7d :%7d :%7d :%7d", 
+            frontLeftPosition, 
+            frontRightPosition, 
+            backLeftPosition, 
+            backRightPosition);
+        telemetry.addData(
+            "Actual", 
+            "%7d :%7d :%7d :%7d", 
+            frontLeftWheel.getCurrentPosition(),
+            frontRightWheel.getCurrentPosition(), 
+            backLeftWheel.getCurrentPosition(),
+            backRightWheel.getCurrentPosition()
+            );
+
+        telemetry.update();
     }
 }

@@ -33,8 +33,8 @@ public class PearlsAutomazing extends LinearOpMode {
 
     static final int DEFAULTINCHES = 1;
     static final int DEFAULTDEGREE = 1;
-    static final int WHEELDIAMETER = 4;
-    static final int ROBOTRADIUS = 9;
+    static final double WHEELDIAMETER = 4;
+    static final double ROBOTRADIUS = 9;
 
     double movementInInches = CPR / (WHEELDIAMETER * Math.PI);
     double movementPerDegree = ((ROBOTRADIUS / (WHEELDIAMETER / 2)) * CPR) / 360;

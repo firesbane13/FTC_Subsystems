@@ -189,11 +189,33 @@ public class PearlsMecanum extends LinearOpMode {
     }
     
     public void drive(){
-        //this can be divided by any number but we chose 4
+        /* 
+         * This adjusts the speed of the rotation.   The Yale whitepaper thought 4 was a fast 
+         * enough rotation.  Dividing by 4 means it ranges from -0.25 - 0.25
+         * Max low range: -1 / 4 = -0.25
+         * Max high range: 1 / 4 = 0.25
+         * 
+         * 4 can be changed if you want to rotate faster or slower.
+         * 
+         * 1 means it turns full speed.   As the number gets bigger, the slower it rotates.
+         */
         double protate = gamepad1.right_stick_x / 4;
         
-        //accounts for protate when limiting magnitude to be less than 1
+        /*
+         * This defines the percentage cap of the value of the x, y values.
+         * The reason for the cap is because the value being sent to the motor
+         * should never be more than 1.   Without the cap there is potential 
+         * for the calculated value to be greater than 1 under certain circumstances.
+         * 
+         * Example:
+         * protate = 0.25 (1/4)
+         * 
+         * processedProtate ~= 0.75
+         * 
+         */
         double processedProtate = Math.sqrt( Math.pow( 1 - Math.abs( protate ), 2 ) / 2 );
+
+        // Adjust the joystick value by the cap value
         double stickX = gamepad1.left_stick_x * processedProtate;
         double stickY = gamepad1.left_stick_y * processedProtate;
         
@@ -281,6 +303,7 @@ public class PearlsMecanum extends LinearOpMode {
          */
         cValue = Math.sqrt(Math.pow(stickX, 2) + Math.pow(stickY, 2));
         
+        // Adjust the theta by the angle of the wheels.   45 deg for 45 deg omni and mecanum wheels.
         pX = cValue * (Math.sin(theta + quarterPi));
         pY = cValue * (Math.sin(theta - quarterPi));
         
